@@ -1,0 +1,26 @@
+#!/bin/bash
+set -e
+
+cp -r rules /usr/local/modsecurity-rules 
+
+cd /usr/local/modsecurity-rules
+
+# TODO: is this necessary?:
+sed -i 's/SecRuleEngine DetectionOnly/SecRuleEngine On/' modsecurity.conf
+sed -i 's/SecRuleEngine Reject/SecRequestBodyLimitAction ProcessPartial/' modsecurity.conf
+# Workaround for issue https://github.com/SpiderLabs/ModSecurity/issues/1941
+
+# Install OWASP Rules
+OWASP_RULES_VERSION=3.3.2
+wget https://github.com/coreruleset/coreruleset/archive/v${OWASP_RULES_VERSION}.tar.gz
+tar -xzvf v${OWASP_RULES_VERSION}.tar.gz
+rm v${OWASP_RULES_VERSION}.tar.gz
+mv coreruleset-${OWASP_RULES_VERSION} coreruleset
+cd coreruleset 
+cp crs-setup.conf.example crs-setup.conf
+
+# Configure Traditional Mode - https://www.modsecurity.org/CRS/Documentation/anomaly.html
+sed -i 's/SecDefaultAction "phase:2,log,auditlog,pass"/SecDefaultAction "phase:2,deny,status:403,log"/' crs-setup.conf
+echo "SecRequestBodyLimit 67108864" >> crs-setup.conf
+echo "SecPcreMatchLimit 150000" >>  crs-setup.conf
+echo "SecPcreMatchLimitRecursion 150000" >>  crs-setup.conf
